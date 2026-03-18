@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Clock Out</title>
+
+<style>
+html,body{height:100%;margin:0;background:#111;color:#fff;font-family:Segoe UI;}
+
+.screen{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  justify-content:center;align-items:center;text-align:center;
+  opacity:0;pointer-events:none;transition:opacity .35s ease;
+}
+.screen.active{opacity:1;pointer-events:auto;}
+
+/* MENU FULL HEIGHT */
+#menu{
+  position:relative;
+  width:100%;
+  height:100%; /* ensures button positions correctly */
+  background: url('menu-background.jpg') no-repeat center center;
+  background-size:cover;
+}
+
+/* PLAY BUTTON HIGHER AND CENTERED */
+#menu .img-btn{
+  position:absolute;
+  bottom:12%; /* moved slightly higher */
+  left:50%;
+  transform:translateX(-50%);
+  width:320px; /* bigger button */
+  cursor:pointer;
+  z-index:10;
+  transition:transform .15s ease, filter .3s ease, opacity .3s ease;
+}
+#menu .img-btn:hover{
+  transform:translateX(-50%) scale(1.05);
+  filter: drop-shadow(0 0 10px #F5BE27) drop-shadow(0 0 20px #F5BE27);
+}
+
+input{
+  padding:12px;margin:10px;width:90%;max-width:400px;
+  background:#222;border:1px solid #555;color:#fff;
+  border-radius:6px;font-size:16px;
+}
+
+.img-btn{
+  width:180px;
+  margin-top:25px;
+  cursor:pointer;
+  transition:transform .1s ease, opacity .3s ease;
+}
+.img-btn:hover{transform:scale(1.05);}
+.img-btn:active{transform:scale(0.95);}
+
+#nextBtn{opacity:0;pointer-events:none;transition:opacity .35s ease;}
+#nextBtn.show{opacity:1;pointer-events:auto;}
+
+.card-container{perspective:1000px;margin:30px auto;width:300px;height:180px;}
+.card{width:100%;height:100%;position:relative;transform-style:preserve-3d;transition:transform .35s;}
+.card.flipped{transform:rotateY(180deg);}
+.card-face{
+  position:absolute;width:100%;height:100%;border-radius:15px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:24px;font-weight:bold;backface-visibility:hidden;
+  text-shadow:0 0 6px black,0 0 12px black;
+  transition:opacity .35s;
+}
+.front{background:#777;}
+.back{transform:rotateY(180deg);opacity:0;background-size:cover;}
+.back.show{opacity:1;}
+
+.impostor-glow{
+  box-shadow:0 0 10px red,0 0 20px red inset;
+  animation:pulse 1s infinite;
+}
+@keyframes pulse{
+  0%{box-shadow:0 0 10px red,0 0 20px red inset;}
+  50%{box-shadow:0 0 15px red,0 0 30px red inset;}
+  100%{box-shadow:0 0 10px red,0 0 20px red inset;}
+}
+
+.fade{opacity:0;transition:opacity .35s ease;}
+.fade.show{opacity:1;}
+.red{color:#ff4c4c;}
+</style>
+</head>
+
+<body>
+
+<!-- MENU -->
+<div id="menu" class="screen active">
+  <img src="play.png" class="img-btn" onclick="startMenuGame()">
+</div>
+
+<!-- SETUP -->
+<div id="setup" class="screen">
+  <h2>Players</h2>
+  <input id="playerNames" placeholder="Alice,Bob">
+  <h2>Words</h2>
+  <input id="wordsInput" placeholder="apple,banana">
+  <img src="start.png" class="img-btn" onclick="startGame()">
+</div>
+
+<!-- GAME -->
+<div id="game" class="screen">
+  <h2 id="playerText" class="fade show"></h2>
+  <div id="cardSection" class="fade show">
+    <div class="card-container">
+      <div class="card" id="card" onclick="flip()">
+        <div class="card-face front">Show Your Word</div>
+        <div class="card-face back" id="back"></div>
+      </div>
+    </div>
+    <img id="nextBtn" src="next.png" class="img-btn" onclick="next()">
+  </div>
+  <div id="phase" class="fade"></div>
+</div>
+
+<script>
+function goTo(id){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  setTimeout(()=>document.getElementById(id).classList.add("active"),350);
+}
+
+function startMenuGame(){
+  goTo('setup');
+}
+
+let players=[],words=[],map={},imp="",i=0;
+let savedPlayers="",savedWords="";
+
+const normalImgs=["crewmate1.jpg","crewmate2.jpg"];
+const impImgs=["impostor1.jpg","impostor2.jpg"];
+
+function startGame(){
+  let p=playerNames.value.trim();
+  let w=wordsInput.value.trim();
+  if(!p||!w) return alert("fill fields");
+
+  players=p.split(",").map(x=>x.trim());
+  words=w.split(",").map(x=>x.trim());
+
+  savedPlayers=p;
+  savedWords=w;
+
+  i=0;
+  map={};
+  phase.innerHTML="";
+  cardSection.style.display="block";
+  nextBtn.classList.remove("show");
+
+  imp=players[Math.floor(Math.random()*players.length)];
+  let chosen=words[Math.floor(Math.random()*words.length)];
+
+  players.forEach(pl=>{
+    map[pl]=(pl===imp)?"IMPOSTOR":chosen;
+  });
+
+  goTo("game");
+  showPlayer();
+}
+
+function showPlayer(){
+  playerText.classList.remove("show");
+  cardSection.classList.remove("show");
+  nextBtn.classList.remove("show");
+
+  setTimeout(()=>{
+    playerText.textContent = players[i]+", your turn";
+    resetCard();
+    playerText.classList.add("show");
+    cardSection.classList.add("show");
+  },200);
+}
+
+function flip(){
+  if(card.classList.contains("flipped")) return;
+
+  let pl=players[i];
+  back.classList.remove("impostor-glow","show");
+
+  if(map[pl]==="IMPOSTOR"){
+    back.style.backgroundImage=`url(${impImgs[Math.floor(Math.random()*impImgs.length)]})`;
+    back.textContent="";
+    back.classList.add("impostor-glow");
+  }else{
+    back.style.backgroundImage=`url(${normalImgs[Math.floor(Math.random()*normalImgs.length)]})`;
+    back.textContent=map[pl];
+    back.style.boxShadow="0 0 10px black inset";
+  }
+
+  card.classList.add("flipped");
+  setTimeout(()=>back.classList.add("show"),50);
+  setTimeout(()=>nextBtn.classList.add("show"),400);
+}
+
+function next(){
+  playerText.classList.remove("show");
+  cardSection.classList.remove("show");
+
+  setTimeout(()=>{
+    i++;
+    if(i>=players.length){
+      cardSection.style.display="none";
+      playerText.textContent="";
+      fadePhase(`<h2>Now you<br>can start</h2><img src="vote.png" class="img-btn" onclick="vote()">`);
+      return;
+    }
+    showPlayer();
+  },350);
+}
+
+function fadePhase(html){
+  phase.classList.remove("show");
+  setTimeout(()=>{
+    phase.innerHTML=html;
+    phase.classList.add("show");
+  },350);
+}
+
+function vote(){
+  fadePhase(`<h2>Vote who is impostor</h2><img src="reveal.png" class="img-btn" onclick="reveal()">`);
+}
+
+function reveal(){
+  fadePhase(`
+    <h2>The impostor was: <span class="red">${imp}</span></h2>
+    <p>Now the impostor can say what they think the word was.</p>
+    <img src="playagain.png" class="img-btn" onclick="playAgain()">
+  `);
+}
+
+function playAgain(){
+  document.querySelectorAll(".fade").forEach(el=>el.classList.remove("show"));
+
+  setTimeout(()=>{
+    playerNames.value = savedPlayers;
+    wordsInput.value = savedWords;
+    phase.innerHTML = "";
+    goTo("menu");
+  },350);
+}
+
+function resetCard(){
+  card.classList.remove("flipped");
+  back.classList.remove("show","impostor-glow");
+  back.textContent="";
+  back.style.backgroundImage="";
+  back.style.boxShadow="";
+}
+</script>
+
+</body>
+</html>
